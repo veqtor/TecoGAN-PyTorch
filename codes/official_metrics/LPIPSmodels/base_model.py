@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import torch
-import LPIPSmodels.util as util
+import codes.official_metrics.LPIPSmodels.util as util
 from torch.autograd import Variable
 from pdb import set_trace as st
 from IPython import embed
@@ -50,7 +50,7 @@ class BaseModel():
         print('Loading network from %s'%save_path)
         network.load_state_dict(torch.load(save_path))
 
-    def update_learning_rate():
+    def update_learning_rate(self):
         pass
 
     def get_image_paths(self):

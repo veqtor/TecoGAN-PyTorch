@@ -7,7 +7,7 @@ import numpy as np
 import cv2
 import torch
 
-from utils import base_utils, data_utils, net_utils
+from codes.utils import base_utils, data_utils, net_utils
 from .LPIPS.models.dist_model import DistModel
 
 

@@ -4,9 +4,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .base_nets import BaseSequenceGenerator, BaseSequenceDiscriminator
-from utils.net_utils import space_to_depth, backward_warp, get_upsampling_func
-from utils.net_utils import initialize_weights
-from utils.data_utils import float32_to_uint8
+from codes.utils.net_utils import space_to_depth, backward_warp, get_upsampling_func
+from codes.utils.net_utils import initialize_weights
+from codes.utils.data_utils import float32_to_uint8
 
 
 # -------------------- generator modules -------------------- #
@@ -259,7 +259,7 @@ class FRNet(BaseSequenceGenerator):
                 :param lr_data: torch.FloatTensor in shape tchw
                 :param device: torch.device
 
-                :return hr_seq: uint8 np.ndarray in shape tchw
+                :return hr_seq: uint8 np.ndarray in shape thwc
         """
 
         # setup params

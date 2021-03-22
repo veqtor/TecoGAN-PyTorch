@@ -3,7 +3,7 @@ import os.path as osp
 
 import torch
 
-from utils.base_utils import get_logger
+from codes.utils.base_utils import get_logger
 
 
 class BaseModel():
