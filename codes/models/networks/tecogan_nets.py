@@ -7,6 +7,7 @@ from .base_nets import BaseSequenceGenerator, BaseSequenceDiscriminator
 from codes.utils.net_utils import space_to_depth, backward_warp, get_upsampling_func
 from codes.utils.net_utils import initialize_weights
 from codes.utils.data_utils import float32_to_uint8
+from tqdm.auto import tqdm
 
 
 # -------------------- generator modules -------------------- #
@@ -272,7 +273,7 @@ class FRNet(BaseSequenceGenerator):
         hr_prev = torch.zeros(
             1, c, s * h, s * w, dtype=torch.float32).to(device)
 
-        for i in range(tot_frm):
+        for i in tqdm(range(tot_frm)):
             with torch.no_grad():
                 self.eval()
 
