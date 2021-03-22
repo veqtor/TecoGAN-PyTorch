@@ -147,15 +147,33 @@ def unstack(a, axis = 0):
 
 from PIL import Image
 
-def upscale_video(path, circular=True, pre_downscale=True, keep_hs=False):
+def upscale_video(path, circular=True, pre_downscale=True, keep_hs=False, passes=3, post_downscale=True):
     clip = load_clip(path)
     print(clip.shape)
-    #clip = clip.transpose([0, 3, 1, 2])
     model = load_model(0)
-    _, hsize, vsize, _ = clip.shape
+    hr_seq = process_frames(model, clip, circular, pre_downscale, keep_hs)
+    if passes > 1:
+        for i in range(passes-1):
+            hr_seq = process_frames(model, np.stack(hr_seq, axis=0), circular, pre_downscale, keep_hs)
+    if post_downscale:
+        t_hsize, t_vsize, _ = hr_seq[0].shape
+        ts = (t_hsize//2,t_vsize//2)
+        hr_seq = [np.array(Image.fromarray(f).resize(ts)) for f in hr_seq]
+    frames = moviepy.editor.ImageSequenceClip(hr_seq, fps=60)
 
+    # Generate video.
+    mp4_file = 'results/%d.mp4' % int(time.time())
+    mp4_codec = 'libx264'
+    mp4_bitrate = '10M'
+    mp4_fps = 60
+
+    frames.write_videofile(mp4_file, fps=mp4_fps, codec=mp4_codec, bitrate=mp4_bitrate)
+
+
+def process_frames(model, clip, circular, pre_downscale, keep_hs):
+    _, hsize, vsize, _ = clip.shape
     if keep_hs:
-        t_hsize, t_vsize =  (hsize * 4, vsize * 4)
+        t_hsize, t_vsize = (hsize * 4, vsize * 4)
         if pre_downscale:
             t_hsize, t_vsize = (t_hsize // 2, t_vsize // 2)
         hsv_frames = []
@@ -165,13 +183,12 @@ def upscale_video(path, circular=True, pre_downscale=True, keep_hs=False):
             f = f.resize((t_hsize, t_vsize))
             f = np.array(f)
             hsv_frames.append(rgb_to_hsv(f))
-
     if pre_downscale:
         clip_frames = unstack(clip, 0)
         small_frames = []
         for f in tqdm(clip_frames):
             f = Image.fromarray(f)
-            f = f.resize((hsize //2, vsize//2))
+            f = f.resize((hsize // 2, vsize // 2))
             f = np.array(f)
             small_frames.append(f)
 
@@ -179,34 +196,20 @@ def upscale_video(path, circular=True, pre_downscale=True, keep_hs=False):
     if circular:
         pre_frames = clip[-10:]
         clip = np.concatenate([pre_frames, clip], axis=0)
-
-
-
-
     print(clip.shape)
     hr_seq = infer_sequence(model, clip)
-
     if circular:
         hr_seq = hr_seq[10:, ...]
-
     print(hr_seq.shape)
-    #hr_seq = hr_seq.transpose([0, 2, 3, 1])
+    # hr_seq = hr_seq.transpose([0, 2, 3, 1])
     hr_seq = [hr_seq[i] for i in range(hr_seq.shape[0])]
     if keep_hs:
         out_frames = []
         for frame, hsv_frame in tqdm(zip(hr_seq, hsv_frames)):
             frame = rgb_to_hsv(frame)
 
-            #out_frames.append(hsv_to_rgb(hsv_frame))
-            out_frames.append(hsv_to_rgb(np.concatenate([hsv_frame[:,:,:2], frame[:,:,2:]], axis=2)))
+            # out_frames.append(hsv_to_rgb(hsv_frame))
+            out_frames.append(hsv_to_rgb(np.concatenate([hsv_frame[:, :, :2], frame[:, :, 2:]], axis=2)))
         hr_seq = out_frames
     print(len(hr_seq))
-    frames = moviepy.editor.ImageSequenceClip(hr_seq, fps=60)
-
-    # Generate video.
-    mp4_file = 'results/%d.avi' % int(time.time())
-    mp4_codec = 'rawvideo'
-    mp4_bitrate = '10M'
-    mp4_fps = 60
-
-    frames.write_videofile(mp4_file, fps=mp4_fps, codec=mp4_codec)#, bitrate=mp4_bitrate)
+    return hr_seq
