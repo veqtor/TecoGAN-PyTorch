@@ -147,7 +147,7 @@ def unstack(a, axis = 0):
 
 from PIL import Image
 
-def upscale_video(path, circular=True, pre_downscale=True, keep_hs=False, passes=3, post_downscale=True):
+def upscale_video(path, circular=True, pre_downscale=True, keep_hs=False, passes=2, post_downscale=True):
     clip = load_clip(path)
     print(clip.shape)
     model = load_model(0)
@@ -156,6 +156,7 @@ def upscale_video(path, circular=True, pre_downscale=True, keep_hs=False, passes
         for i in range(passes-1):
             hr_seq = process_frames(model, np.stack(hr_seq, axis=0), circular, pre_downscale, keep_hs)
     if post_downscale:
+        print('downscaling')
         t_hsize, t_vsize, _ = hr_seq[0].shape
         ts = (t_hsize//2,t_vsize//2)
         hr_seq = [np.array(Image.fromarray(f).resize(ts)) for f in hr_seq]
@@ -196,11 +197,11 @@ def process_frames(model, clip, circular, pre_downscale, keep_hs):
     if circular:
         pre_frames = clip[-10:]
         clip = np.concatenate([pre_frames, clip], axis=0)
-    print(clip.shape)
+    print('in size', clip.shape)
     hr_seq = infer_sequence(model, clip)
     if circular:
         hr_seq = hr_seq[10:, ...]
-    print(hr_seq.shape)
+    print('out size', hr_seq.shape)
     # hr_seq = hr_seq.transpose([0, 2, 3, 1])
     hr_seq = [hr_seq[i] for i in range(hr_seq.shape[0])]
     if keep_hs:
@@ -211,5 +212,4 @@ def process_frames(model, clip, circular, pre_downscale, keep_hs):
             # out_frames.append(hsv_to_rgb(hsv_frame))
             out_frames.append(hsv_to_rgb(np.concatenate([hsv_frame[:, :, :2], frame[:, :, 2:]], axis=2)))
         hr_seq = out_frames
-    print(len(hr_seq))
     return hr_seq
