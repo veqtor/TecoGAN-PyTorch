@@ -159,6 +159,7 @@ def upscale_video(path, circular=True, pre_downscale=True, keep_hs=False, passes
     model = load_model(0)
     print('running pass 0...')
     hr_seq = process_frames(model, clip, circular, pre_downscale, keep_hs)
+    del clip
     if passes > 1:
         for i in range(passes-1):
             print('running pass', i+1)
@@ -198,6 +199,7 @@ def process_frames(model, clip, circular, pre_downscale, keep_hs):
     if circular:
         pre_frames = clip[-10:]
         clip = np.concatenate([pre_frames, clip], axis=0)
+        del pre_frames
 
     print('Running TecoGAN on sequence of length', clip.shape[0])
     hr_seq = infer_sequence(model, clip)
