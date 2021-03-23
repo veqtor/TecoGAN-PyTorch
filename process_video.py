@@ -147,22 +147,29 @@ def unstack(a, axis = 0):
 
 from PIL import Image
 
+def downscale(seq, factor=2):
+    t_hsize, t_vsize, _ = seq[0].shape
+    ts = (t_hsize // factor, t_vsize // factor)
+    return [np.array(Image.fromarray(f).resize(ts)) for f in tqdm(seq)]
+
 def upscale_video(path, circular=True, pre_downscale=True, keep_hs=False, passes=2, post_downscale=True):
+    print('loading clip...')
     clip = load_clip(path)
-    print(clip.shape)
+    print('loading model...')
     model = load_model(0)
+    print('running pass 0...')
     hr_seq = process_frames(model, clip, circular, pre_downscale, keep_hs)
     if passes > 1:
         for i in range(passes-1):
+            print('running pass', i+1)
             hr_seq = process_frames(model, np.stack(hr_seq, axis=0), circular, pre_downscale, keep_hs)
     if post_downscale:
-        print('downscaling')
-        t_hsize, t_vsize, _ = hr_seq[0].shape
-        ts = (t_hsize//2,t_vsize//2)
-        hr_seq = [np.array(Image.fromarray(f).resize(ts)) for f in hr_seq]
+        print('downscaling output')
+        hr_seq = downscale(hr_seq)
     frames = moviepy.editor.ImageSequenceClip(hr_seq, fps=60)
 
     # Generate video.
+    print('saving file')
     mp4_file = 'results/%d.mp4' % int(time.time())
     mp4_codec = 'libx264'
     mp4_bitrate = '10M'
@@ -174,6 +181,7 @@ def upscale_video(path, circular=True, pre_downscale=True, keep_hs=False, passes
 def process_frames(model, clip, circular, pre_downscale, keep_hs):
     _, hsize, vsize, _ = clip.shape
     if keep_hs:
+        print('preparing HSV consistency')
         t_hsize, t_vsize = (hsize * 4, vsize * 4)
         if pre_downscale:
             t_hsize, t_vsize = (t_hsize // 2, t_vsize // 2)
@@ -185,26 +193,19 @@ def process_frames(model, clip, circular, pre_downscale, keep_hs):
             f = np.array(f)
             hsv_frames.append(rgb_to_hsv(f))
     if pre_downscale:
-        clip_frames = unstack(clip, 0)
-        small_frames = []
-        for f in tqdm(clip_frames):
-            f = Image.fromarray(f)
-            f = f.resize((hsize // 2, vsize // 2))
-            f = np.array(f)
-            small_frames.append(f)
-
-        clip = np.stack(small_frames, axis=0)
+        print('downscaling input')
+        clip = np.stack(downscale(unstack(clip)), axis=0)
     if circular:
         pre_frames = clip[-10:]
         clip = np.concatenate([pre_frames, clip], axis=0)
-    print('in size', clip.shape)
+
+    print('Running TecoGAN on sequence of length', clip.shape[0])
     hr_seq = infer_sequence(model, clip)
     if circular:
         hr_seq = hr_seq[10:, ...]
-    print('out size', hr_seq.shape)
-    # hr_seq = hr_seq.transpose([0, 2, 3, 1])
     hr_seq = [hr_seq[i] for i in range(hr_seq.shape[0])]
     if keep_hs:
+        print('applying HSV consistency')
         out_frames = []
         for frame, hsv_frame in tqdm(zip(hr_seq, hsv_frames)):
             frame = rgb_to_hsv(frame)
